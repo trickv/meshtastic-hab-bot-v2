@@ -35,11 +35,6 @@ def distance_between_geodetic_points(p1, p2):
     distance_meters = math.sqrt(dx**2 + dy**2 + dz**2)
     return round(distance_meters / 1000.0, 1)  # convert to kilometers
 
-# Example:
-point1 = (37.7749, -122.4194, 30)   # San Francisco with 30m altitude
-point2 = (34.0522, -118.2437, 100)  # Los Angeles with 100m altitude
-
-distance_km = distance_between_geodetic_points(point1, point2)
 
 # Received: {'from': 530607104, 'to': 131047185, 'decoded': {'portnum': 'TEXT_MESSAGE_APP', 'payload': b'G', 'bitfield': 1, 'text': 'G'}, 'id': 103172025, 'rxTime': 1745376860, 'rxSnr': 7.0, 'hopLimit': 7, 'wantAck': True, 'rxRssi': -14, 'hopStart': 7, 'publicKey': 'Jn89K4tEsX2fKYy+NUu3J8EJ/gjXjxP1SQCHm3A8Wms=', 'pkiEncrypted': True, 'raw': from: 530607104, to: 131047185, [...], 'fromId': '!1fa06c00', 'toId': '!07cf9f11'}
 
@@ -70,7 +65,7 @@ def onReceive(packet, interface):
         print('unhandled packet')
 
 pub.subscribe(onReceive, "meshtastic.receive")
-interface = meshtastic.tcp_interface.TCPInterface(hostname='172.16.17.185')
+interface = meshtastic.tcp_interface.TCPInterface(hostname='127.0.0.1')
 
 while True:
     my = interface.getMyNodeInfo()
