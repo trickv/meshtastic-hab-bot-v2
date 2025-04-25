@@ -1,0 +1,14 @@
+[Unit]
+Description=MT HAB bot
+After=meshtasticd.service
+
+[Service]
+ExecStart=/home/trick/mt/bin/python3 /home/trick/balloon-bot/bot.py
+Restart=on-failure
+User=trick
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/home/trick/balloon-bot
+
+[Install]
+WantedBy=multi-user.target

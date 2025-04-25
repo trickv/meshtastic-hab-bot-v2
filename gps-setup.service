@@ -1,0 +1,12 @@
+[Unit]
+Description=Set uBlox GPS Dynamic Model (one-shot)
+After=network.target
+Before=meshtasticd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/trick/balloon-bot/cgps.py --port /dev/ttyACM0 --baud 9600 --set-model 6
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
