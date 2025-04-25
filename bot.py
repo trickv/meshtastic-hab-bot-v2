@@ -86,7 +86,6 @@ interface = meshtastic.tcp_interface.TCPInterface(hostname='127.0.0.1')
 
 while True:
     my = interface.getMyNodeInfo()
-    print(my)
     pos = my['position']
     pay = {
         'chUtil': round(my['deviceMetrics']['channelUtilization'], 2),
@@ -99,10 +98,15 @@ while True:
             'lat': round(my['position']['latitude'],4),
             'lon': round(my['position']['longitude'],4),
         })
-# TODO: linux uptime, Pi cpu temp?, some voltage?
+    with open("/proc/uptime", "r") as f:
+        uptime_str = f.readline().split()[0]
+        pay.update({'uptime': int(uptime_str))
+    # TODO: Pi cpu temp?, some voltage?
     pay_json = json.dumps(pay)
     msg = f"mtf:{pay_json}"
-    interface.sendText(msg, '!d9efdb3d')
+    # balloon channel idx=1 key vSHBJpTtJU3VvpQX3DYfAZUEfaHy4uYXVbHTVrx0ItA=
+    interface.sendText(msg, destinationId='^all', channelIndex=1)
+    interface.sendPosition(destinationId='^all', channelIndex=1)
     print(msg)
     print(f"sent downlink len {len(msg)} sleeping...")
     # do clever things based on altitude???
