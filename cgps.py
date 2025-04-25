@@ -40,6 +40,43 @@ def ubx_assemble_packet(class_id, message_id, payload):
         + payload \
         + __ubx_checksum(prefix + length + payload) # fixme use other def?
 
+def enable_flight_mode(serial_port):
+    """
+    Sends a CFG-NAV5 UBX message which enables "flight mode", which allows
+    operation at higher altitudes than defaults.
+    Should read up more on this sentence, I'm just copying this
+    byte string from other tracker projects.
+    See for example string:
+        https://github.com/Chetic/Serenity/blob/master/Serenity.py#L10
+        https://github.com/PiInTheSky/pits/blob/master/tracker/gps.c#L423
+    """
+    print("radio_flyer GPS: enabling flight mode")
+    cfg_nav5_class_id = 0x06
+    cfg_nav5_message_id = 0x24
+    payload = bytearray.fromhex("FF FF 06 03 00 00 00 00 10 27 00 00 05 00 FA 00 FA 00 64 00 2C 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00") # pylint: disable=line-too-long
+    ack_ok = __send_and_confirm_ubx_packet(serial_port, cfg_nav5_class_id, cfg_nav5_message_id, payload)
+    if not ack_ok:
+        raise Exception("Failed to configure GPS for flight mode.")
+    print("GPS: flight mode enabled.")
+
+def __send_and_confirm_ubx_packet(serial_port, class_id, message_id, payload):
+    """
+    Constructs, sends, and waits for an ACK packet for a UBX "binary" packet.
+    User only needs to specify the class & message IDs, and the payload as a bytearray;
+        the header, length and checksum are calculated automatically.
+    Then constructs the corresponding CFG-ACK packet expected, and waits for it.
+    If the ACK packet is not received, returns False.
+    """
+
+    send_packet = ubx_assemble_packet(class_id, message_id, payload)
+    serial_port.write(send_packet)
+    print("UBX packet built: {}".format(send_packet))
+
+    return read_ack(serial_port, class_id, message_id)
+
+def reboot_my_gps(serial_port):
+    return __send_and_confirm_ubx_packet(serial_port, 0x06, 0x04, bytearray.fromhex("FF 87 00 00"))
+
 # --- Utility Functions ---
 def ubx_checksum(payload):
     ck_a = 0
@@ -81,28 +118,6 @@ def read_ack(serial_port, msg_class, msg_id, timeout=2):
     return None
 
 
-def send_ubx_cfg_nav5(serial_port, dyn_model):
-    # 36-byte payload with all fields (some zeroed)
-    payload = struct.pack('<HBBLLLLLLLLLHHHHHH',
-        0x0001,    # mask: only apply dynModel
-        dyn_model, # dynamic model (0-8)
-        2,         # fixMode (2 = auto)
-        0, 0, 0,   # fixedAlt, fixedAltVar, minElev
-        0, 0, 0,   # drLimit, pDop, tDop
-        0, 0, 0,   # pAcc, tAcc, staticHoldThresh
-        0,         # dgpsTimeout
-        0,         # cnoThreshNumSVs
-        0,         # cnoThresh
-        0,         # reserved1
-        0          # reserved2
-    )
-
-    msg = b'\xB5\x62\x06\x24' + struct.pack('<H', len(payload)) + payload
-    msg += ubx_checksum(b'\x06\x24' + struct.pack('<H', len(payload)) + payload)
-
-    serial_port.write(msg)
-    return read_ack(serial_port, 0x06, 0x24)
-
 def query_dynamic_model(serial_port):
     msg = b'\xB5\x62\x06\x24\x00\x00'
     msg += ubx_checksum(b'\x06\x24\x00\x00')
@@ -120,40 +135,21 @@ def query_dynamic_model(serial_port):
                     dyn_model = payload[2]
                     return dyn_model
 
-def send_ubx_reset(serial_port, reset_type=0x00, nav_bbr_mask=0xFFFF):
-    """
-    Send a UBX-CFG-RST reset command.
-
-    nav_bbr_mask:
-      0x0000 = Hot start
-      0x0001 = Warm start
-      0xFFFF = Cold start (clear everything)
-
-    reset_type:
-      0x00 = Hardware reset (controlled by nav_bbr_mask)
-      0x01 = Controlled software reset
-      0x08 = Hardware reset (immediate)
-    """
-    payload = struct.pack('<HBb', nav_bbr_mask, reset_type, 0)
-    msg = b'\xB5\x62\x06\x04' + struct.pack('<H', len(payload)) + payload
-    msg += ubx_checksum(b'\x06\x04' + struct.pack('<H', len(payload)) + payload)
-    serial_port.write(msg)
-
 # --- CLI Entry Point ---
 def main():
     parser = argparse.ArgumentParser(description="Query or set uBlox GPS dynamic model mode.")
     parser.add_argument('--port', required=True, help="Serial port (e.g. /dev/ttyUSB0 or COM3)")
     parser.add_argument('--baud', type=int, default=9600, help="Baud rate (default: 9600)")
     parser.add_argument('--get-model', action='store_true', help="Query current dynamic model")
-    parser.add_argument('--set-model', type=int, help="Set dynamic model (e.g. 6 for Airborne <1g)")
-    parser.add_argument('--reset-gps', action='store_true', help="Send cold-start reset (equivalent to power cycle)")
+    parser.add_argument('--set-flight-mode', action='store_true', help="Set dynamic model to 6 for airborne 1g use")
+    parser.add_argument('--reset-gps', action='store_true', help="Send reboot")
 
     args = parser.parse_args()
 
     try:
         with serial.Serial(args.port, args.baud, timeout=1) as ser:
             if args.reset_gps:
-                send_ubx_reset(ser, reset_type=0x00, nav_bbr_mask=0xFFFF)
+                reboot_my_gps(ser)
                 print("Cold reset sent. GPS is rebooting...")
                 return  # Don't do anything else after reset
             if args.get_model:
@@ -162,7 +158,7 @@ def main():
 
             if args.set_model is not None:
                 print(f"Setting Dynamic Model to {args.set_model} ({dynamic_model_name(args.set_model)})...")
-                result = send_ubx_cfg_nav5(ser, args.set_model)
+                result = enable_flight_mode(ser)
                 if result is True:
                     print("Model set successfully (ACK received).")
                 elif result is False:
