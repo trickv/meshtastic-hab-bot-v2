@@ -100,13 +100,13 @@ while True:
         })
     with open("/proc/uptime", "r") as f:
         uptime_str = f.readline().split()[0]
-        pay.update({'uptime': int(uptime_str))
+        pay.update({'uptime': int(float(uptime_str))})
     # TODO: Pi cpu temp?, some voltage?
     pay_json = json.dumps(pay)
     msg = f"mtf:{pay_json}"
     # balloon channel idx=1 key vSHBJpTtJU3VvpQX3DYfAZUEfaHy4uYXVbHTVrx0ItA=
     interface.sendText(msg, destinationId='^all', channelIndex=1)
-    interface.sendPosition(destinationId='^all', channelIndex=1)
+    #interface.sendPosition(destinationId='^all', channelIndex=1)
     print(msg)
     print(f"sent downlink len {len(msg)} sleeping...")
     # do clever things based on altitude???
