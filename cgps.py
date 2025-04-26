@@ -56,8 +56,9 @@ def enable_flight_mode(serial_port):
     payload = bytearray.fromhex("FF FF 06 03 00 00 00 00 10 27 00 00 05 00 FA 00 FA 00 64 00 2C 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00") # pylint: disable=line-too-long
     ack_ok = __send_and_confirm_ubx_packet(serial_port, cfg_nav5_class_id, cfg_nav5_message_id, payload)
     if not ack_ok:
-        raise Exception("Failed to configure GPS for flight mode.")
+        return False
     print("GPS: flight mode enabled.")
+    return True
 
 def __send_and_confirm_ubx_packet(serial_port, class_id, message_id, payload):
     """
@@ -142,22 +143,24 @@ def main():
     parser.add_argument('--baud', type=int, default=9600, help="Baud rate (default: 9600)")
     parser.add_argument('--get-model', action='store_true', help="Query current dynamic model")
     parser.add_argument('--set-flight-mode', action='store_true', help="Set dynamic model to 6 for airborne 1g use")
-    parser.add_argument('--reset-gps', action='store_true', help="Send reboot")
+    parser.add_argument('--reboot', action='store_true', help="Send reboot")
 
     args = parser.parse_args()
 
     try:
         with serial.Serial(args.port, args.baud, timeout=1) as ser:
-            if args.reset_gps:
-                reboot_my_gps(ser)
-                print("Cold reset sent. GPS is rebooting...")
+            if args.reboot:
+                if reboot_my_gps(ser):
+                    print("Cold reset sent. GPS is rebooting...")
+                else:
+                    print("NAK on reset. oops.")
                 return  # Don't do anything else after reset
             if args.get_model:
                 model = query_dynamic_model(ser)
                 print(f"Current Dynamic Model: {model} ({dynamic_model_name(model)})")
 
-            if args.set_model is not None:
-                print(f"Setting Dynamic Model to {args.set_model} ({dynamic_model_name(args.set_model)})...")
+            if args.set_flight_mode:
+                print(f"Setting Dynamic Model to flight mode...")
                 result = enable_flight_mode(ser)
                 if result is True:
                     print("Model set successfully (ACK received).")
@@ -165,6 +168,7 @@ def main():
                     print("Failed to set model (NAK received).")
                 else:
                     print("No response from GPS (timeout).")
+                time.sleep(2)
     except serial.SerialException as e:
         print(f"Serial error: {e}")
         sys.exit(1)
