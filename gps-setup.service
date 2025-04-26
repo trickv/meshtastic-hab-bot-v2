@@ -5,7 +5,7 @@ Before=meshtasticd.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/python3 /home/trick/balloon-bot/cgps.py --port /dev/ttyACM0 --baud 9600 --set-model 6
+ExecStart=/home/trick/mt/bin/python3 /home/trick/balloon-bot/cgps.py --port /dev/ttyACM0 --baud 9600 --set-flight-mode
 RemainAfterExit=yes
 
 [Install]
