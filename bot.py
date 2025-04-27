@@ -173,8 +173,8 @@ while True:
         uptime_str = f.readline().split()[0]
         pay.update({'uptime': int(float(uptime_str))})
     # TODO: Pi cpu temp?, some voltage?
-    pay_json = json.dumps(pay)
-    msg = f"mtf:{pay_json}"
+    pay_json = json.dumps(pay, separators=(',', ':'))
+    msg = f"mtf1:{pay_json}"
     # balloon channel idx=1 key vSHBJpTtJU3VvpQX3DYfAZUEfaHy4uYXVbHTVrx0ItA=
     #interface.sendPosition(destinationId='^all', channelIndex=1)# NB: this seems to send a position packet without any lat/long??? weird.
     interface.sendText(msg, destinationId='^all', channelIndex=1)
