@@ -8,6 +8,8 @@ import datetime
 import math
 import json
 import traceback
+import subprocess
+import re
 
 # WGS84 ellipsoid constants
 a = 6378137.0          # semi-major axis in meters
@@ -36,6 +38,45 @@ def distance_between_geodetic_points(p1, p2):
     distance_meters = math.sqrt(dx**2 + dy**2 + dz**2)
     return round(distance_meters / 1000.0, 1)  # convert to kilometers
 
+def parse_recent_gps_from_journalctl():
+    # Only get logs from the last 1 minute
+    result = subprocess.run(
+        ["journalctl", "-u", "meshtasticd", "--no-pager", "--output=short", "--since", "1 min ago"],
+        capture_output=True, text=True
+    )
+    
+    logs = result.stdout
+
+    # Pattern to find GPS events
+    gps_event_pattern = re.compile(
+        r'^(?P<month>\w{3}) (?P<day>\d{1,2}) (?P<time>\d{2}:\d{2}:\d{2}).*New GPS pos.*lat=(?P<lat>-?\d+\.\d+) lon=(?P<lon>-?\d+\.\d+) alt=(?P<alt>-?\d+).*sats=(?P<sats>\d+)',
+        re.MULTILINE
+    )
+
+    matches = list(gps_event_pattern.finditer(logs))
+
+    if not matches:
+        return None
+
+    latest_match = matches[-1]  # Get the most recent match
+    data = latest_match.groupdict()
+
+    # Parse the time into a UTC timestamp
+    now = datetime.datetime.utcnow()
+    log_dt = datetime.datetime.strptime(f"{now.year} {data['month']} {data['day']} {data['time']}", "%Y %b %d %H:%M:%S")
+    log_dt = log_dt.replace(tzinfo=datetime.timezone.utc)
+    timestamp = int(log_dt.timestamp())
+
+    # Build the dictionary
+    gps_data = {
+        "lat": float(data['lat']),
+        "lon": float(data['lon']),
+        "alt": int(data['alt']),
+        "sats": int(data['sats']),
+        "timestamp": timestamp
+    }
+
+    return gps_data
 
 # Received: {'from': 530607104, 'to': 131047185, 'decoded': {'portnum': 'TEXT_MESSAGE_APP', 'payload': b'G', 'bitfield': 1, 'text': 'G'}, 'id': 103172025, 'rxTime': 1745376860, 'rxSnr': 7.0, 'hopLimit': 7, 'wantAck': True, 'rxRssi': -14, 'hopStart': 7, 'publicKey': 'Jn89K4tEsX2fKYy+NUu3J8EJ/gjXjxP1SQCHm3A8Wms=', 'pkiEncrypted': True, 'raw': from: 530607104, to: 131047185, [...], 'fromId': '!1fa06c00', 'toId': '!07cf9f11'}
 
@@ -86,17 +127,21 @@ interface = meshtastic.tcp_interface.TCPInterface(hostname='127.0.0.1')
 
 while True:
     my = interface.getMyNodeInfo()
-    pos = my['position']
+    print(f"my:{my}")
+    #pos = my['position']
+    pos = parse_recent_gps_from_journalctl()
     pay = {
         'chUtil': round(my['deviceMetrics']['channelUtilization'], 2),
         'airUtilTx': round(my['deviceMetrics']['channelUtilization'], 2),
         'uptime': my['deviceMetrics']['uptimeSeconds'],
         }
-    if {'altitude', 'latitude', 'longitude'}.issubset(pos):
+    if pos:
         pay.update({
-            'alt': round(my['position']['altitude'],0),
-            'lat': round(my['position']['latitude'],4),
-            'lon': round(my['position']['longitude'],4),
+            'alt': round(pos['alt'],0),
+            'lat': round(pos['lat'],6),
+            'lon': round(pos['lon'],6),
+            'sats': pos['sats'],
+            'gpstime': pos['timestamp'],
         })
     with open("/proc/uptime", "r") as f:
         uptime_str = f.readline().split()[0]
@@ -105,8 +150,8 @@ while True:
     pay_json = json.dumps(pay)
     msg = f"mtf:{pay_json}"
     # balloon channel idx=1 key vSHBJpTtJU3VvpQX3DYfAZUEfaHy4uYXVbHTVrx0ItA=
+    #interface.sendPosition(destinationId='^all', channelIndex=1)# NB: this seems to send a position packet without any lat/long??? weird.
     interface.sendText(msg, destinationId='^all', channelIndex=1)
-    #interface.sendPosition(destinationId='^all', channelIndex=1)
     print(msg)
     print(f"sent downlink len {len(msg)} sleeping...")
     # do clever things based on altitude???
