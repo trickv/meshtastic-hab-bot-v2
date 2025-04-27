@@ -180,7 +180,6 @@ while True:
     interface.sendText(msg, destinationId='^all', channelIndex=1)
     print(msg)
     print(f"sent downlink len {len(msg)} sleeping...")
-    # do clever things based on altitude???
     time.sleep(60)
 
 
