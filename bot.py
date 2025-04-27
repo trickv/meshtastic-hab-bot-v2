@@ -125,7 +125,13 @@ def onReceive(packet, interface):
 pub.subscribe(onReceive, "meshtastic.receive")
 interface = meshtastic.tcp_interface.TCPInterface(hostname='127.0.0.1')
 
+iteration = 0
+
+max_alt = 0
+burst = False
+
 while True:
+    iteration += 1
     my = interface.getMyNodeInfo()
     print(f"my:{my}")
     #pos = my['position']
@@ -143,6 +149,26 @@ while True:
             'sats': pos['sats'],
             'gpstime': pos['timestamp'],
         })
+        msg = None
+        alt = pos['alt']
+        if alt > 1000 and max_alt < alt:
+            max_alt = alt
+        if alt > 1000 and alt < 1360:
+            # we're finally in flight!
+            msg = f"KD9PRC🎈 has lifted off! Altitude is {alt}m"
+        if (alt > 5000 and alt < 5360) or (alt > 10000 and alt < 10360) or (alt > 15000 and alt < 15360) or (alt > 20000 and alt < 20360) or (alt > 25000 and alt < 25360) or (alt > 30000 and alt < 30360):
+            msg = f"KD9PRC🎈 at altitude {alt}m. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
+        if alt < max_alt - 100 and not burst:
+            burst = True
+            msg = f"KD9PRC🎈 balloon has burst at {max_alt}! I'll be landing in about 30 minutes, wish me luck!"
+        if msg:
+            print(f"Sending broadcast {msg}")
+            interface.sendText(msg, destinationId='^all')
+    else:
+        if iteration % 30 == 0:
+            msg = "Hi from KD9PRC🎈. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
+            print(f"Sending broadcast {msg}")
+            interface.sendText(msg, destinationId='^all')
     with open("/proc/uptime", "r") as f:
         uptime_str = f.readline().split()[0]
         pay.update({'uptime': int(float(uptime_str))})
