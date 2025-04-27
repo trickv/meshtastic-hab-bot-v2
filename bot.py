@@ -138,7 +138,7 @@ while True:
     pos = parse_recent_gps_from_journalctl()
     pay = {
         'chUtil': round(my['deviceMetrics']['channelUtilization'], 2),
-        'airUtilTx': round(my['deviceMetrics']['channelUtilization'], 2),
+        'airUtilTx': round(my['deviceMetrics']['airUtilTx'], 2),
         'uptime': my['deviceMetrics']['uptimeSeconds'],
         }
     if pos:
