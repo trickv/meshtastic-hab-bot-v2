@@ -180,6 +180,8 @@ while True:
     interface.sendText(msg, destinationId='^all', channelIndex=1)
     print(msg)
     print(f"sent downlink len {len(msg)} sleeping...")
+    #interface.showNodes() # for later analysis
+    print(repr(interface.nodes))
     time.sleep(60)
 
 
