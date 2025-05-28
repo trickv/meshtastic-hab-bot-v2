@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import meshtastic
-import meshtastic.tcp_interface
+import meshtastic.tcp_interface, meshtastic.ble_interface, meshtastic.serial_interface
 from pubsub import pub
 import time
 import datetime
@@ -10,6 +10,15 @@ import json
 import traceback
 import subprocess
 import re
+
+# Some constants to use 'round
+my_name = "KD9PRC🎈1"
+my_node_user_id = 131047185
+
+### Connect to the node. You will need to modify this to suit your interface:
+interface = meshtastic.tcp_interface.TCPInterface(hostname='127.0.0.1')
+#interface = meshtastic.BLEInterface('Redd_db3d')
+#interface = meshtastic.SerialInterface('/dev/ttyACM0')
 
 # WGS84 ellipsoid constants
 a = 6378137.0          # semi-major axis in meters
@@ -81,14 +90,14 @@ def parse_recent_gps_from_journalctl():
 # Received: {'from': 530607104, 'to': 131047185, 'decoded': {'portnum': 'TEXT_MESSAGE_APP', 'payload': b'G', 'bitfield': 1, 'text': 'G'}, 'id': 103172025, 'rxTime': 1745376860, 'rxSnr': 7.0, 'hopLimit': 7, 'wantAck': True, 'rxRssi': -14, 'hopStart': 7, 'publicKey': 'Jn89K4tEsX2fKYy+NUu3J8EJ/gjXjxP1SQCHm3A8Wms=', 'pkiEncrypted': True, 'raw': from: 530607104, to: 131047185, [...], 'fromId': '!1fa06c00', 'toId': '!07cf9f11'}
 
 def onReceive(packet, interface):
-    print("packet")
+    print("packet") # FIXME: debug packets so we can trace stuff we receive in flight
     #print(f"Received: {packet}")
     try:
-        if packet['decoded']['portnum'] == 'TEXT_MESSAGE_APP' and packet['to'] == 131047185:
+        if packet['decoded']['portnum'] == 'TEXT_MESSAGE_APP' and packet['to'] == my_node_user_id:
             print(f"rx msg: {packet['decoded']['payload']} from {packet['fromId']}")
             rx_time = datetime.datetime.fromtimestamp(packet['rxTime']).time()
 
-            msg = f"KD9PRC 🎈 node. "
+            msg = f"{my_name} node. "
 
             msg += f"I ack your msg at {rx_time}. "
             try:
@@ -123,7 +132,6 @@ def onReceive(packet, interface):
         traceback.print_exc()
 
 pub.subscribe(onReceive, "meshtastic.receive")
-interface = meshtastic.tcp_interface.TCPInterface(hostname='127.0.0.1')
 
 iteration = 0
 
@@ -155,18 +163,18 @@ while True:
             max_alt = alt
         if alt > 1000 and alt < 1360:
             # we're finally in flight!
-            msg = f"KD9PRC🎈 has lifted off! Altitude is {alt}m"
+            msg = f"{my_name} has lifted off! Altitude is {alt}m"
         if (alt > 5000 and alt < 5360) or (alt > 10000 and alt < 10360) or (alt > 15000 and alt < 15360) or (alt > 20000 and alt < 20360) or (alt > 25000 and alt < 25360) or (alt > 30000 and alt < 30360):
-            msg = f"KD9PRC🎈 at altitude {alt}m. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
+            msg = f"{my_name} at altitude {alt}m. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
         if alt < max_alt - 100 and not burst:
             burst = True
-            msg = f"KD9PRC🎈 balloon has burst at {max_alt}! I'll be landing in about 30 minutes, wish me luck!"
+            msg = f"{my_name} balloon has burst at {max_alt}! I'll be landing in about 30 minutes, wish me luck!"
         if msg:
             print(f"Sending broadcast {msg}")
             interface.sendText(msg, destinationId='^all')
     else:
         if iteration % 30 == 0:
-            msg = "Hi from KD9PRC🎈. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
+            msg = "Hi from {my_name}. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
             print(f"Sending broadcast {msg}")
             interface.sendText(msg, destinationId='^all')
     with open("/proc/uptime", "r") as f:
@@ -175,7 +183,7 @@ while True:
     # TODO: Pi cpu temp?, some voltage?
     pay_json = json.dumps(pay, separators=(',', ':'))
     msg = f"mtf1:{pay_json}"
-    # balloon channel idx=1 key vSHBJpTtJU3VvpQX3DYfAZUEfaHy4uYXVbHTVrx0ItA=
+    # BalloonData channel idx=1 key vSHBJpTtJU3VvpQX3DYfAZUEfaHy4uYXVbHTVrx0ItA=
     #interface.sendPosition(destinationId='^all', channelIndex=1)# NB: this seems to send a position packet without any lat/long??? weird.
     interface.sendText(msg, destinationId='^all', channelIndex=1)
     print(msg)
