@@ -12,12 +12,12 @@ import subprocess
 import re
 
 # Some constants to use 'round
-my_name = "KD9PRC🎈1"
-my_node_user_id = 131047185
+my_name = "KD9PRC🎈2"
+my_node_user_id = 3656375101
 
 ### Connect to the node. You will need to modify this to suit your interface:
-interface = meshtastic.tcp_interface.TCPInterface(hostname='127.0.0.1')
-#interface = meshtastic.BLEInterface('Redd_db3d')
+#interface = meshtastic.tcp_interface.TCPInterface(hostname='127.0.0.1')
+interface = meshtastic.ble_interface.BLEInterface('redd_db3d')
 #interface = meshtastic.SerialInterface('/dev/ttyACM0')
 
 # WGS84 ellipsoid constants
@@ -65,6 +65,7 @@ def parse_recent_gps_from_journalctl():
     matches = list(gps_event_pattern.finditer(logs))
 
     if not matches:
+        print("No GPS in log!")
         return None
 
     latest_match = matches[-1]  # Get the most recent match
@@ -105,7 +106,7 @@ def onReceive(packet, interface):
             except Exception:
                 print("failed to get SNR?")
                 traceback.print_exc()
-            if {'latitude', 'longitude', 'altitude'}.issubset(pos):
+            if pos is not None and {'latitude', 'longitude', 'altitude'}.issubset(pos):
                 print("I have local position")
                 msg += f"My alt {round(pos['altitude'],0)}m, lat {round(pos['latitude'],3)} lon {round(pos['longitude'],3)}. "
                 if packet['fromId'] in interface.nodes:
