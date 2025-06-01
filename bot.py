@@ -10,7 +10,7 @@ import traceback
 import subprocess
 import re
 
-from config import interface, my_name, my_node_user_id
+from config import *
 
 # WGS84 ellipsoid constants
 a = 6378137.0          # semi-major axis in meters
