@@ -178,9 +178,10 @@ while True:
     msg = f"mtf1:{pay_json}"
     # BalloonData channel idx=1 key vSHBJpTtJU3VvpQX3DYfAZUEfaHy4uYXVbHTVrx0ItA=
     #interface.sendPosition(destinationId='^all', channelIndex=1)# NB: this seems to send a position packet without any lat/long??? weird.
-    interface.sendText(msg, destinationId='^all', channelIndex=1)
-    print(msg)
-    print(f"sent downlink len {len(msg)} sleeping...")
+    if use_balloondata_channel:
+        interface.sendText(msg, destinationId='^all', channelIndex=1)
+        print(msg)
+        print(f"sent downlink len {len(msg)} sleeping...")
     #interface.showNodes() # for later analysis
     print(repr(interface.nodes))
     time.sleep(60)

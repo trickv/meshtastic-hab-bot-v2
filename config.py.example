@@ -10,3 +10,5 @@ my_node_user_id = 3656375101
 #interface = meshtastic.tcp_interface.TCPInterface(hostname='127.0.0.1')
 interface = meshtastic.ble_interface.BLEInterface('redd_db3d')
 #interface = meshtastic.SerialInterface('/dev/ttyACM0')
+
+use_balloondata_channel = True
