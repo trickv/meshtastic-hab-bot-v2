@@ -1,0 +1,12 @@
+import meshtastic.tcp_interface, meshtastic.ble_interface, meshtastic.serial_interface
+
+# Some constants to use 'round
+my_name = "KD9PRC🎈2"
+my_node_user_id = 3656375101
+#my_name = "KD9PRC🎈1"
+#my_node_user_id = 131047185
+
+### Connect to the node. You will need to modify this to suit your interface:
+#interface = meshtastic.tcp_interface.TCPInterface(hostname='127.0.0.1')
+interface = meshtastic.ble_interface.BLEInterface('redd_db3d')
+#interface = meshtastic.SerialInterface('/dev/ttyACM0')

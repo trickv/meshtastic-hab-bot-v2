@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import meshtastic
-import meshtastic.tcp_interface, meshtastic.ble_interface, meshtastic.serial_interface
 from pubsub import pub
 import time
 import datetime
@@ -11,14 +10,7 @@ import traceback
 import subprocess
 import re
 
-# Some constants to use 'round
-my_name = "KD9PRC🎈2"
-my_node_user_id = 3656375101
-
-### Connect to the node. You will need to modify this to suit your interface:
-#interface = meshtastic.tcp_interface.TCPInterface(hostname='127.0.0.1')
-interface = meshtastic.ble_interface.BLEInterface('redd_db3d')
-#interface = meshtastic.SerialInterface('/dev/ttyACM0')
+from config import interface, my_name, my_node_user_id
 
 # WGS84 ellipsoid constants
 a = 6378137.0          # semi-major axis in meters
