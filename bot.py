@@ -77,19 +77,47 @@ def parse_recent_gps_from_journalctl():
         "sats": int(data['sats']),
         "timestamp": timestamp
     }
+    print(f"GPS: {gps_data}")
 
     return gps_data
 
 # Received: {'from': 530607104, 'to': 131047185, 'decoded': {'portnum': 'TEXT_MESSAGE_APP', 'payload': b'G', 'bitfield': 1, 'text': 'G'}, 'id': 103172025, 'rxTime': 1745376860, 'rxSnr': 7.0, 'hopLimit': 7, 'wantAck': True, 'rxRssi': -14, 'hopStart': 7, 'publicKey': 'Jn89K4tEsX2fKYy+NUu3J8EJ/gjXjxP1SQCHm3A8Wms=', 'pkiEncrypted': True, 'raw': from: 530607104, to: 131047185, [...], 'fromId': '!1fa06c00', 'toId': '!07cf9f11'}
 
-def onReceive(packet, interface):
-    print("packet") # FIXME: debug packets so we can trace stuff we receive in flight
+def debug_print_packet(packet):
+    #print(packet)
+    if not 'decoded' in packet:
+        print("Packet not decoded (presumably someone else's key")
+        print(packet)
+        return
     packet_debug = {}
-    keys = ['from', 'to', 'decoded']
-    packet_debug = k: original[k] for k in keys if k in original}
-    print(f"Received packet: {packet_debug}")
-    #packet_json = json.dumps(packet)
-    #print(f"Received packet: {packet_json}")
+    keys = ['from', 'to', 'fromId', 'toId', 'rxSnr', 'rxRssi', 'hopLimit', 'hopStart']
+    packet_debug = {k: packet[k] for k in keys if k in packet}
+    packet_debug.update({'portnum': packet['decoded']['portnum']})
+    portnum = packet['decoded']['portnum']
+    if portnum == 'TEXT_MESSAGE_APP':
+        packet_debug.update({'payload': packet['decoded']['payload']})
+    elif portnum == 'POSITION_APP':
+        packet_pos = packet['decoded']['position']
+        keys = ['latitude', 'longitude', 'altitude', 'locationSource']
+        pos_debug = {k: packet_pos[k] for k in keys if k in packet_pos}
+        if len(pos_debug) == 0:
+            pos_debug['weird_empty_position_packet'] = True
+        packet_debug.update(pos_debug)
+    elif portnum == 'NODEINFO_APP':
+        packet_user = packet['decoded']['user']
+        keys = ['id', 'longName', 'shortName', 'hwModel']
+        user_debug = {k: packet_user[k] for k in keys if k in packet_user}
+        packet_debug.update(user_debug)
+    elif portnum in ('ADMIN_APP', 'ROUTING_APP', 'TELEMETRY_APP'):
+        pass
+    else:
+        packet_debug.update({'unhandled_packet_type': True})
+        print("UNHANDLED TYPE")
+        print(packet)
+    print(f"RXpacketDebug: {packet_debug}")
+
+def onReceive(packet, interface):
+    debug_print_packet(packet)
     try:
         if packet['decoded']['portnum'] == 'TEXT_MESSAGE_APP' and packet['to'] == my_node_user_id:
             print(f"rx msg: {packet['decoded']['payload']} from {packet['fromId']}")
@@ -103,9 +131,9 @@ def onReceive(packet, interface):
             except Exception:
                 print("failed to get SNR?")
                 traceback.print_exc()
-            if pos is not None and {'latitude', 'longitude', 'altitude'}.issubset(pos):
+            if pos is not None and {'lat', 'lon', 'alt'}.issubset(pos):
                 print("I have local position")
-                msg += f"My alt {round(pos['altitude'],0)}m, lat {round(pos['latitude'],3)} lon {round(pos['longitude'],3)}. "
+                msg += f"My alt {round(pos['alt'],0)}m, lat {round(pos['lat'],3)} lon {round(pos['lon'],3)}. "
                 if packet['fromId'] in interface.nodes:
                     print("fromId is in")
                     if 'position' in interface.nodes[packet['fromId']]:
@@ -115,7 +143,7 @@ def onReceive(packet, interface):
                             print("it has attrs")
                             distance_km = distance_between_geodetic_points(
                                 (remote_position['latitude'], remote_position['longitude'], remote_position['altitude']),
-                                (pos['latitude'], pos['longitude'], pos['altitude']))
+                                (pos['lat'], pos['lon'], pos['alt']))
                             msg += f"We are {distance_km}km apart! "
                     else:
                         print("No remote position available")
@@ -124,7 +152,7 @@ def onReceive(packet, interface):
                 msg += "My GPS has no lock at the moment. "
             msg += "Thanks for QSO!"
             interface.sendText(msg, packet['from'])
-            print(f"sent reply, {len(msg)}")
+            print(f"QSO Bot: sent reply to {packet['from']}, {len(msg)}")
     except Exception as e:
         print('unhandled exception')
         traceback.print_exc()
@@ -135,6 +163,9 @@ iteration = 0
 
 max_alt = 0
 burst = False
+pos = None
+
+print("Balloon bot up and running")
 
 while True:
     iteration += 1
