@@ -84,7 +84,12 @@ def parse_recent_gps_from_journalctl():
 
 def onReceive(packet, interface):
     print("packet") # FIXME: debug packets so we can trace stuff we receive in flight
-    #print(f"Received: {packet}")
+    packet_debug = {}
+    keys = ['from', 'to', 'decoded']
+    packet_debug = k: original[k] for k in keys if k in original}
+    print(f"Received packet: {packet_debug}")
+    #packet_json = json.dumps(packet)
+    #print(f"Received packet: {packet_json}")
     try:
         if packet['decoded']['portnum'] == 'TEXT_MESSAGE_APP' and packet['to'] == my_node_user_id:
             print(f"rx msg: {packet['decoded']['payload']} from {packet['fromId']}")
@@ -134,7 +139,7 @@ burst = False
 while True:
     iteration += 1
     my = interface.getMyNodeInfo()
-    print(f"my:{my}")
+    #print(f"my:{my}")
     #pos = my['position']
     pos = parse_recent_gps_from_journalctl()
     pay = {
@@ -183,7 +188,7 @@ while True:
         print(msg)
         print(f"sent downlink len {len(msg)} sleeping...")
     #interface.showNodes() # for later analysis
-    print(repr(interface.nodes))
+    #print(repr(interface.nodes))
     time.sleep(60)
 
 
