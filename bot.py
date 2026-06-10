@@ -224,7 +224,12 @@ while True:
             interface.sendText(msg, destinationId='^all')
     # While on the ground (below 1000m or no fix), DM a status to redd
     # instead of broadcasting to ^all, to avoid spamming the local mesh.
-    if iteration % 30 == 0 and (pos is None or pos['alt'] < 1000):
+    # No fix is worth knowing about sooner, so DM every 5 min instead of 30.
+    if pos is None:
+        send_ground_dm = iteration % 5 == 0
+    else:
+        send_ground_dm = pos['alt'] < 1000 and iteration % 30 == 0
+    if send_ground_dm:
         if pos:
             status = f"alt {pos['alt']}m, {pos['sats']} sats"
         else:
