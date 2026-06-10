@@ -221,7 +221,7 @@ while True:
             interface.sendText(msg, destinationId='^all')
     else:
         if iteration % 30 == 0:
-            msg = "Hi from {my_name}. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
+            msg = f"Hi from {my_name}. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
             print(f"Sending broadcast {msg}")
             interface.sendText(msg, destinationId='^all')
     with open("/proc/uptime", "r") as f:
