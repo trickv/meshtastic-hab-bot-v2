@@ -161,7 +161,10 @@ iteration = 0
 
 max_alt = 0
 burst = False
+prev_alt = None
 pos = None
+
+MILESTONE_ALTITUDES = (5000, 10000, 15000, 20000, 25000, 30000)
 
 print("Balloon bot up and running")
 
@@ -188,11 +191,21 @@ while True:
         alt = pos['alt']
         if alt > 1000 and max_alt < alt:
             max_alt = alt
-        if alt > 1000 and alt < 1360:
-            # we're finally in flight!
-            msg = f"{my_name} has lifted off! Altitude is {alt}m"
-        if (alt > 5000 and alt < 5360) or (alt > 10000 and alt < 10360) or (alt > 15000 and alt < 15360) or (alt > 20000 and alt < 20360) or (alt > 25000 and alt < 25360) or (alt > 30000 and alt < 30360):
-            msg = f"{my_name} at altitude {alt}m. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
+        # Milestone messages trigger on crossing a threshold since the last
+        # reading (rather than altitude windows), so they fire exactly once
+        # per crossing and fast descent can't skip past them.
+        if prev_alt is not None:
+            if prev_alt < 1000 <= alt:
+                # we're finally in flight!
+                msg = f"{my_name} has lifted off! Altitude is {alt}m"
+            for milestone in MILESTONE_ALTITUDES:
+                if prev_alt < milestone <= alt:
+                    msg = f"{my_name} at altitude {alt}m. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
+                elif alt <= milestone < prev_alt:
+                    msg = f"{my_name} descending through {alt}m. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
+            if alt < 1000 <= prev_alt:
+                msg = f"{my_name} descending through {alt}m, landing soon!"
+        prev_alt = alt
         if alt < max_alt - 100 and not burst:
             burst = True
             msg = f"{my_name} balloon has burst at {max_alt}! I'll be landing in about 30 minutes, wish me luck!"
