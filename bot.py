@@ -238,6 +238,3 @@ while True:
     #interface.showNodes() # for later analysis
     #print(repr(interface.nodes))
     time.sleep(60)
-
-
-interface.close()
