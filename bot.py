@@ -40,9 +40,11 @@ def distance_between_geodetic_points(p1, p2):
     return round(distance_meters / 1000.0, 1)  # convert to kilometers
 
 def parse_recent_gps_from_journalctl():
-    # Only get logs from the last 1 minute
+    # Only get logs from the last 1 minute.
+    # short-unix output gives epoch timestamps directly, avoiding
+    # local-time vs UTC ambiguity (and year rollover) when parsing.
     result = subprocess.run(
-        ["journalctl", "-u", "meshtasticd", "--no-pager", "--output=short", "--since", "1 min ago"],
+        ["journalctl", "-u", "meshtasticd", "--no-pager", "--output=short-unix", "--since", "1 min ago"],
         capture_output=True, text=True
     )
     
@@ -50,7 +52,7 @@ def parse_recent_gps_from_journalctl():
 
     # Pattern to find GPS events
     gps_event_pattern = re.compile(
-        r'^(?P<month>\w{3}) (?P<day>\d{1,2}) (?P<time>\d{2}:\d{2}:\d{2}).*New GPS pos.*lat=(?P<lat>-?\d+\.\d+) lon=(?P<lon>-?\d+\.\d+) alt=(?P<alt>-?\d+).*sats=(?P<sats>\d+)',
+        r'^(?P<timestamp>\d+\.\d+) .*New GPS pos.*lat=(?P<lat>-?\d+\.\d+) lon=(?P<lon>-?\d+\.\d+) alt=(?P<alt>-?\d+).*sats=(?P<sats>\d+)',
         re.MULTILINE
     )
 
@@ -63,11 +65,7 @@ def parse_recent_gps_from_journalctl():
     latest_match = matches[-1]  # Get the most recent match
     data = latest_match.groupdict()
 
-    # Parse the time into a UTC timestamp
-    now = datetime.datetime.utcnow()
-    log_dt = datetime.datetime.strptime(f"{now.year} {data['month']} {data['day']} {data['time']}", "%Y %b %d %H:%M:%S")
-    log_dt = log_dt.replace(tzinfo=datetime.timezone.utc)
-    timestamp = int(log_dt.timestamp())
+    timestamp = int(float(data['timestamp']))
 
     # Build the dictionary
     gps_data = {
