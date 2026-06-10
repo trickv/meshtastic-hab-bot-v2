@@ -157,6 +157,10 @@ def onReceive(packet, interface):
 
 pub.subscribe(onReceive, "meshtastic.receive")
 
+# redd, trick's home node; gets ground-status DMs instead of the
+# local mesh hearing ^all broadcasts during development
+GROUND_DM_NODE_ID = 3656375101  # !d9efdb3d
+
 iteration = 0
 
 max_alt = 0
@@ -218,11 +222,16 @@ while True:
         if msg:
             print(f"Sending broadcast {msg}")
             interface.sendText(msg, destinationId='^all')
-    else:
-        if iteration % 30 == 0:
-            msg = f"Hi from {my_name}. DM me for stats, ChiMesh.org for Discord, follow path on amateur.sondehub.org"
-            print(f"Sending broadcast {msg}")
-            interface.sendText(msg, destinationId='^all')
+    # While on the ground (below 1000m or no fix), DM a status to redd
+    # instead of broadcasting to ^all, to avoid spamming the local mesh.
+    if iteration % 30 == 0 and (pos is None or pos['alt'] < 1000):
+        if pos:
+            status = f"alt {pos['alt']}m, {pos['sats']} sats"
+        else:
+            status = "no GPS fix"
+        msg = f"{my_name} ground status: {status}"
+        print(f"Sending ground DM: {msg}")
+        interface.sendText(msg, GROUND_DM_NODE_ID)
     with open("/proc/uptime", "r") as f:
         uptime_str = f.readline().split()[0]
         pay.update({'uptime': int(float(uptime_str))})
