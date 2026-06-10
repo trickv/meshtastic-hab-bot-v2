@@ -117,7 +117,9 @@ def debug_print_packet(packet):
 def onReceive(packet, interface):
     debug_print_packet(packet)
     try:
-        if packet['decoded']['portnum'] == 'TEXT_MESSAGE_APP' and packet['to'] == my_node_user_id:
+        # Filter on the connected node's live ID, not config, so the bot
+        # replies to DMs no matter which radio it's driving.
+        if packet['decoded']['portnum'] == 'TEXT_MESSAGE_APP' and packet['to'] == interface.myInfo.my_node_num:
             print(f"rx msg: {packet['decoded']['payload']} from {packet['fromId']}")
             rx_time = datetime.datetime.fromtimestamp(packet['rxTime']).time()
 

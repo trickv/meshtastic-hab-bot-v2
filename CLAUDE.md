@@ -10,7 +10,7 @@ There are no tests, no linter config, and no requirements file. Dependencies (in
 
 ## Running
 
-- `python3 bot.py` — the main bot. Requires `config.py` (copy from `config.py.example`), which defines `my_name`, `my_node_user_id`, the `interface` object (BLE/TCP/serial connection to the node), and `use_balloondata_channel`. `config.py` is gitignored because it holds per-node/per-flight settings.
+- `python3 bot.py` — the main bot. Requires `config.py` (copy from `config.py.example`), which defines `my_name`, the `interface` object (BLE/TCP/serial connection to the node), and `use_balloondata_channel`. `config.py` is gitignored because it holds per-node/per-flight settings.
 - `python3 cgps.py --port /dev/ttyACM0 --get-model | --set-flight-mode | --reboot` — standalone CLI to query/set the u-blox GPS dynamic model. Flight mode (airborne <1g) is required for the GPS to work above ~12km altitude.
 - `gps.py` — small test harness for the vendored `ublox.py` library; not used by the bot.
 
@@ -20,7 +20,7 @@ Deployment is via systemd on the Pi: `balloon-bot.service` runs `bot.py`; `gps-s
 
 `bot.py` is a single script with two concurrent concerns:
 
-1. **Receive path** — `pub.subscribe(onReceive, "meshtastic.receive")` handles incoming packets via the meshtastic pubsub API. Every packet goes through `debug_print_packet()` for structured logging; text messages addressed to `my_node_user_id` get an auto-reply with SNR/RSSI, current position, and great-circle distance (computed via ECEF conversion in `distance_between_geodetic_points`).
+1. **Receive path** — `pub.subscribe(onReceive, "meshtastic.receive")` handles incoming packets via the meshtastic pubsub API. Every packet goes through `debug_print_packet()` for structured logging; text messages addressed to the connected node (its live ID via `interface.myInfo`) get an auto-reply with SNR/RSSI, current position, and great-circle distance (computed via ECEF conversion in `distance_between_geodetic_points`).
 
 2. **Transmit loop** — the `while True` loop at the bottom runs every 60s. It reads GPS **not** from the meshtastic API but by regex-scraping `journalctl -u meshtasticd` output (`parse_recent_gps_from_journalctl`) — this is a deliberate workaround because the node's position API was unreliable. It tracks `max_alt`/`burst` state to fire one-shot announcements at altitude bands (the `alt > N and alt < N+360` windows assume ~6 m/s ascent × 60s loop, so each band triggers exactly once), and sends the JSON telemetry downlink on channel index 1.
 
