@@ -161,6 +161,7 @@ iteration = 0
 
 max_alt = 0
 burst = False
+descent_readings = 0
 prev_alt = None
 pos = None
 
@@ -206,9 +207,15 @@ while True:
             if alt < 1000 <= prev_alt:
                 msg = f"{my_name} descending through {alt}m, landing soon!"
         prev_alt = alt
-        if alt < max_alt - 100 and not burst:
+        # Require two consecutive readings below the peak so a single noisy
+        # GPS fix can't trigger a false burst announcement.
+        if alt < max_alt - 100:
+            descent_readings += 1
+        else:
+            descent_readings = 0
+        if descent_readings >= 2 and not burst:
             burst = True
-            msg = f"{my_name} balloon has burst at {max_alt}! I'll be landing in about 30 minutes, wish me luck!"
+            msg = f"{my_name} balloon has burst at {max_alt}m! I'll be landing in about 30 minutes, wish me luck!"
         if msg:
             print(f"Sending broadcast {msg}")
             interface.sendText(msg, destinationId='^all')
