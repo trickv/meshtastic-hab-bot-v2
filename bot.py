@@ -9,8 +9,45 @@ import json
 import traceback
 import subprocess
 import re
+import os
+import base64
 
 from config import *
+
+# Per-run JSONL data files for post-flight analysis: one stream of every
+# received packet, one of our own GPS/telemetry. New files each start so
+# test runs never mix with the real flight.
+DATA_DIR = "data"
+os.makedirs(DATA_DIR, exist_ok=True)
+_run_stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+PACKETS_LOG = os.path.join(DATA_DIR, f"{_run_stamp}-packets.jsonl")
+TELEMETRY_LOG = os.path.join(DATA_DIR, f"{_run_stamp}-telemetry.jsonl")
+
+def sanitize(obj):
+    # Make a meshtastic packet dict JSON-safe: protobuf objects live under
+    # 'raw' keys (top-level and nested in decoded/position/user) and bytes
+    # payloads aren't serializable.
+    if isinstance(obj, dict):
+        return {k: sanitize(v) for k, v in obj.items() if k != 'raw'}
+    if isinstance(obj, list):
+        return [sanitize(v) for v in obj]
+    if isinstance(obj, bytes):
+        try:
+            return obj.decode('utf-8')
+        except UnicodeDecodeError:
+            return {'base64': base64.b64encode(obj).decode('ascii')}
+    return obj
+
+def log_jsonl(path, record):
+    # A logging failure must never take down the bot mid-flight.
+    try:
+        line = json.dumps(dict(record, ts=round(time.time(), 3)),
+                          separators=(',', ':'), default=str)
+        with open(path, 'a') as f:
+            f.write(line + '\n')
+    except Exception:
+        print("failed to write data log")
+        traceback.print_exc()
 
 # WGS84 ellipsoid constants
 a = 6378137.0          # semi-major axis in meters
@@ -115,6 +152,7 @@ def debug_print_packet(packet):
     print(f"RXpacketDebug: {packet_debug}")
 
 def onReceive(packet, interface):
+    log_jsonl(PACKETS_LOG, {'event': 'rx', 'packet': sanitize(packet)})
     debug_print_packet(packet)
     try:
         # Filter on the connected node's live ID, not config, so the bot
@@ -243,6 +281,7 @@ while True:
         uptime_str = f.readline().split()[0]
         pay.update({'uptime': int(float(uptime_str))})
     # TODO: Pi cpu temp?, some voltage?
+    log_jsonl(TELEMETRY_LOG, dict(pay, iteration=iteration, max_alt=max_alt, burst=burst))
     pay_json = json.dumps(pay, separators=(',', ':'))
     msg = f"mtf1:{pay_json}"
     # BalloonData channel idx=1 key vSHBJpTtJU3VvpQX3DYfAZUEfaHy4uYXVbHTVrx0ItA=
